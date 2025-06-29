@@ -3,24 +3,26 @@ package us.potatoboy.invview;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.serialization.Dynamic;
+import com.mojang.logging.LogUtils;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.storage.ReadView;
 import net.minecraft.text.Text;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.util.ErrorReporter;
+import net.minecraft.util.Identifier;
 import us.potatoboy.invview.gui.SavingPlayerDataGui;
 import us.potatoboy.invview.gui.UnmodifiableSlot;
 import us.potatoboy.invview.mixin.EntityAccessor;
@@ -48,7 +50,8 @@ public class ViewCommand {
                 gui.setTitle(requestedPlayer.getName());
                 addBackground(gui);
                 for (int i = 0; i < requestedPlayer.getInventory().size(); i++) {
-                    gui.setSlotRedirect(i, canModify ? new Slot(requestedPlayer.getInventory(), i, 0, 0) : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
+                    gui.setSlotRedirect(i, canModify ? new Slot(requestedPlayer.getInventory(), i, 0, 0)
+                            : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
                 }
 
                 gui.open();
@@ -69,19 +72,20 @@ public class ViewCommand {
             if (isProtected) {
                 context.getSource().sendError(Text.literal(msgProtected));
             } else {
-				ScreenHandlerType<?> screenHandlerType = switch (requestedEchest.size()) {
-					case 9 -> ScreenHandlerType.GENERIC_9X1;
-					case 18  -> ScreenHandlerType.GENERIC_9X2;
-					case 36  -> ScreenHandlerType.GENERIC_9X4;
-					case 45  -> ScreenHandlerType.GENERIC_9X5;
-					case 54  -> ScreenHandlerType.GENERIC_9X6;
-					default -> ScreenHandlerType.GENERIC_9X3;
-				};
+                ScreenHandlerType<?> screenHandlerType = switch (requestedEchest.size()) {
+                    case 9 -> ScreenHandlerType.GENERIC_9X1;
+                    case 18 -> ScreenHandlerType.GENERIC_9X2;
+                    case 36 -> ScreenHandlerType.GENERIC_9X4;
+                    case 45 -> ScreenHandlerType.GENERIC_9X5;
+                    case 54 -> ScreenHandlerType.GENERIC_9X6;
+                    default -> ScreenHandlerType.GENERIC_9X3;
+                };
                 SimpleGui gui = new SavingPlayerDataGui(screenHandlerType, player, requestedPlayer);
                 gui.setTitle(requestedPlayer.getName());
                 addBackground(gui);
                 for (int i = 0; i < requestedEchest.size(); i++) {
-                    gui.setSlotRedirect(i, canModify ? new Slot(requestedEchest, i, 0, 0) : new UnmodifiableSlot(requestedEchest, i));
+                    gui.setSlotRedirect(i,
+                            canModify ? new Slot(requestedEchest, i, 0, 0) : new UnmodifiableSlot(requestedEchest, i));
                 }
 
                 gui.open();
@@ -161,15 +165,21 @@ public class ViewCommand {
         GameProfile requestedProfile = GameProfileArgumentType.getProfileArgument(context, "target").iterator().next();
         ServerPlayerEntity requestedPlayer = minecraftServer.getPlayerManager().getPlayer(requestedProfile.getName());
 
+        // If player is not currently online
         if (requestedPlayer == null) {
-            requestedPlayer = minecraftServer.getPlayerManager().createPlayer(requestedProfile, SyncedClientOptions.createDefault());
-            Optional<NbtCompound> compoundOpt = minecraftServer.getPlayerManager().loadPlayerData(requestedPlayer);
-            if (compoundOpt.isPresent()) {
-                NbtCompound compound = compoundOpt.get();
-                if (compound.contains("Dimension")) {
+            requestedPlayer = new ServerPlayerEntity(minecraftServer, minecraftServer.getOverworld(), requestedProfile,
+                    SyncedClientOptions.createDefault());
+            Optional<ReadView> readViewOpt = minecraftServer.getPlayerManager()
+                    .loadPlayerData(requestedPlayer, new ErrorReporter.Logging(LogUtils.getLogger()));
+
+            // Avoids player's dimension being reset to the overworld
+            if (readViewOpt.isPresent()) {
+                ReadView readView = readViewOpt.get();
+                Optional<String> dimension = readView.getOptionalString("Dimension");
+                
+                if (dimension.isPresent()) {
                     ServerWorld world = minecraftServer.getWorld(
-                            DimensionType.worldFromDimensionNbt(new Dynamic<>(NbtOps.INSTANCE, compound.get("Dimension")))
-                                    .result().get());
+                            RegistryKey.of(RegistryKeys.WORLD, Identifier.tryParse(dimension.get())));
 
                     if (world != null) {
                         ((EntityAccessor) requestedPlayer).callSetWorld(world);

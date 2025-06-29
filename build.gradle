@@ -51,8 +51,8 @@ dependencies {
 //    modImplementation "dev.emi:trinkets:${project.trinkets_version}"
 //    modImplementation "com.github.apace100:apoli:${project.apoli_version}"
 
-    modImplementation "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
-    include "me.lucko:fabric-permissions-api:0.2-SNAPSHOT"
+    modImplementation "me.lucko:fabric-permissions-api:0.4.0"
+    include "me.lucko:fabric-permissions-api:0.4.0"
 
     // Dev Mods - These can be commented/uncommented to test compatibility
     //modLocalRuntime "maven.modrinth:cloth-config:9.0.94+fabric"

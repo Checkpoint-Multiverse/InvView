@@ -1,6 +1,8 @@
 package us.potatoboy.invview;
 
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.mojang.logging.LogUtils;
+
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -13,12 +15,14 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.storage.NbtWriteView;
+import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Util;
 import net.minecraft.util.WorldSavePath;
-import org.apache.logging.log4j.LogManager;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class InvView implements ModInitializer {
     private static MinecraftServer minecraftServer;
@@ -90,18 +94,21 @@ public class InvView implements ModInitializer {
         return minecraftServer;
     }
 
+    // Taken from net.minecraft.world.PlayerSaveHandler.savePlayerData(), which is a protected method
     public static void savePlayerData(ServerPlayerEntity player) {
-        File playerDataDir = minecraftServer.getSavePath(WorldSavePath.PLAYERDATA).toFile();
-        try {
-            NbtCompound compoundTag = player.writeNbt(new NbtCompound());
-            File file = File.createTempFile(player.getUuidAsString() + "-", ".dat", playerDataDir);
-            final FileOutputStream fos = new FileOutputStream(file);
-            NbtIo.writeCompressed(compoundTag, fos);
-            File file2 = new File(playerDataDir, player.getUuidAsString() + ".dat");
-            File file3 = new File(playerDataDir, player.getUuidAsString() + ".dat_old");
-            Util.backupAndReplace(file2.toPath(), file.toPath(), file3.toPath());
-        } catch (Exception var6) {
-            LogManager.getLogger().warn("Failed to save player data for {}", player.getName().getString());
-        }
-    }
+       File playerDataDir = minecraftServer.getSavePath(WorldSavePath.PLAYERDATA).toFile();
+       	try (ErrorReporter.Logging logging = new ErrorReporter.Logging(player.getErrorReporterContext(), LogUtils.getLogger())) {
+			NbtWriteView nbtWriteView = NbtWriteView.create(logging, player.getRegistryManager());
+			player.writeData(nbtWriteView);
+			Path path = playerDataDir.toPath();
+			Path path2 = Files.createTempFile(path, player.getUuidAsString() + "-", ".dat");
+			NbtCompound nbtCompound = nbtWriteView.getNbt();
+			NbtIo.writeCompressed(nbtCompound, path2);
+			Path path3 = path.resolve(player.getUuidAsString() + ".dat");
+			Path path4 = path.resolve(player.getUuidAsString() + ".dat_old");
+			Util.backupAndReplace(path3, path2, path4);
+		} catch (Exception var11) {
+			LogUtils.getLogger().warn("Failed to save player data for {}", player.getName().getString());
+		}
+   }
 }
