@@ -1,5 +1,6 @@
 package us.potatoboy.invview;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.mojang.logging.LogUtils;
 
@@ -8,7 +9,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.command.argument.GameProfileArgumentType;
+import net.minecraft.command.CommandSource;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
@@ -46,14 +47,16 @@ public class InvView implements ModInitializer {
             LiteralCommandNode<ServerCommandSource> invNode = CommandManager
                     .literal("inv")
                     .requires(Permissions.require("invview.command.inv", 2))
-                    .then(CommandManager.argument("target", GameProfileArgumentType.gameProfile())
+                    .then(CommandManager.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> CommandSource.suggestMatching(context.getSource().getPlayerNames(), builder))
                             .executes(ViewCommand::inv))
                     .build();
 
             LiteralCommandNode<ServerCommandSource> echestNode = CommandManager
                     .literal("echest")
                     .requires(Permissions.require("invview.command.echest", 2))
-                    .then(CommandManager.argument("target", GameProfileArgumentType.gameProfile())
+                    .then(CommandManager.argument("target", StringArgumentType.word())
+                            .suggests((context, builder) -> CommandSource.suggestMatching(context.getSource().getPlayerNames(), builder))
                             .executes(ViewCommand::eChest))
                     .build();
 
