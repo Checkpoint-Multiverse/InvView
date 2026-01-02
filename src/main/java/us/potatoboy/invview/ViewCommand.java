@@ -5,12 +5,14 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.Dynamic;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenHandlerType;
@@ -23,6 +25,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 import net.minecraft.util.WorldSavePath;
+import net.minecraft.world.dimension.DimensionType;
+import us.potatoboy.invview.gui.SaveSlot;
 import us.potatoboy.invview.gui.SavingPlayerDataGui;
 import us.potatoboy.invview.gui.UnmodifiableSlot;
 import us.potatoboy.invview.mixin.EntityAccessor;
@@ -52,7 +56,7 @@ public class ViewCommand {
             gui.setTitle(requestedPlayer.getName());
             addBackground(gui);
             for (int i = 0; i < requestedPlayer.getInventory().size(); i++) {
-                gui.setSlotRedirect(i, canModify ? new Slot(requestedPlayer.getInventory(), i, 0, 0)
+                gui.setSlotRedirect(i, canModify ? new SaveSlot(requestedPlayer.getInventory(), i, requestedPlayer)
                         : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
             }
 
@@ -142,6 +146,43 @@ public class ViewCommand {
 
         return requestedPlayer;
     }
+
+// My method of getting requested player
+
+//    private static ServerPlayerEntity getRequestedPlayer(CommandContext<ServerCommandSource> context)
+//            throws CommandSyntaxException {
+//        //GameProfile requestedProfile = GameProfileArgumentType.getProfileArgument(context, "target").iterator().next();
+//        //ServerPlayerEntity requestedPlayer = minecraftServer.getPlayerManager().getPlayer(requestedProfile.getName());
+//
+//        MinecraftServer server = context.getSource().getServer();
+//        String name = StringArgumentType.getString(context, "target");
+//        ServerPlayerEntity requestedPlayer = server.getPlayerManager().getPlayer(name);
+//
+//        if (requestedPlayer == null) {
+//
+//            //requestedPlayer = minecraftServer.getPlayerManager().createPlayer(requestedProfile);
+//            //NbtCompound compound = minecraftServer.getPlayerManager().loadPlayerData(requestedPlayer);
+//
+//            GameProfile profile = server.getUserCache()
+//                    .findByName(name)
+//                    .orElseGet(() -> new GameProfile(Uuids.getOfflinePlayerUuid(name), name));
+//
+//            requestedPlayer = server.getPlayerManager().createPlayer(profile);
+//            NbtCompound compound = server.getPlayerManager().loadPlayerData(requestedPlayer);
+//
+//            if (compound != null) {
+//                ServerWorld world = minecraftServer.getWorld(
+//                        DimensionType.worldFromDimensionNbt(new Dynamic<>(NbtOps.INSTANCE, compound.get("Dimension")))
+//                                .result().get());
+//
+//                if (world != null) {
+//                    ((EntityAccessor) requestedPlayer).callSetWorld(world);
+//                }
+//            }
+//        }
+//
+//        return requestedPlayer;
+//    }
 
     private static void addBackground(SimpleGui gui) {
         for (int i = 0; i < gui.getSize(); i++) {
