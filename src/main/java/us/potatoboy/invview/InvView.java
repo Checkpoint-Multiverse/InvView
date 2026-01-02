@@ -4,7 +4,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.mojang.logging.LogUtils;
 
-import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -16,8 +15,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Util;
 import net.minecraft.util.WorldSavePath;
 
@@ -41,12 +38,12 @@ public class InvView implements ModInitializer {
 
             LiteralCommandNode<ServerCommandSource> viewNode = CommandManager
                     .literal("view")
-                    .requires(Permissions.require("invview.command.root", 2))
+                    .requires(src -> PermissionsCompat.check(src, "invview.command.root", 2))
                     .build();
 
             LiteralCommandNode<ServerCommandSource> invNode = CommandManager
                     .literal("inv")
-                    .requires(Permissions.require("invview.command.inv", 2))
+                    .requires(src -> PermissionsCompat.check(src, "invview.command.inv", 2))
                     .then(CommandManager.argument("target", StringArgumentType.word())
                             .suggests((context, builder) -> CommandSource.suggestMatching(context.getSource().getPlayerNames(), builder))
                             .executes(ViewCommand::inv))
@@ -54,7 +51,7 @@ public class InvView implements ModInitializer {
 
             LiteralCommandNode<ServerCommandSource> echestNode = CommandManager
                     .literal("echest")
-                    .requires(Permissions.require("invview.command.echest", 2))
+                    .requires(src -> PermissionsCompat.check(src, "invview.command.echest", 2))
                     .then(CommandManager.argument("target", StringArgumentType.word())
                             .suggests((context, builder) -> CommandSource.suggestMatching(context.getSource().getPlayerNames(), builder))
                             .executes(ViewCommand::eChest))
@@ -97,21 +94,22 @@ public class InvView implements ModInitializer {
         return minecraftServer;
     }
 
-    // Taken from net.minecraft.world.PlayerSaveHandler.savePlayerData(), which is a protected method
+    // Taken and adapted for 1.20.1 from net.minecraft.world.PlayerSaveHandler.savePlayerData()
     public static void savePlayerData(ServerPlayerEntity player) {
-       File playerDataDir = minecraftServer.getSavePath(WorldSavePath.PLAYERDATA).toFile();
-       	try (ErrorReporter.Logging logging = new ErrorReporter.Logging(player.getErrorReporterContext(), LogUtils.getLogger())) {
-			NbtWriteView nbtWriteView = NbtWriteView.create(logging, player.getRegistryManager());
-			player.writeData(nbtWriteView);
-			Path path = playerDataDir.toPath();
-			Path path2 = Files.createTempFile(path, player.getUuidAsString() + "-", ".dat");
-			NbtCompound nbtCompound = nbtWriteView.getNbt();
-			NbtIo.writeCompressed(nbtCompound, path2);
-			Path path3 = path.resolve(player.getUuidAsString() + ".dat");
-			Path path4 = path.resolve(player.getUuidAsString() + ".dat_old");
-			Util.backupAndReplace(path3, path2, path4);
-		} catch (Exception var11) {
-			LogUtils.getLogger().warn("Failed to save player data for {}", player.getName().getString());
-		}
-   }
+        File playerDataDir = minecraftServer.getSavePath(WorldSavePath.PLAYERDATA).toFile();
+        try {
+            NbtCompound nbt = new NbtCompound();
+            // 1.20.1: write player data directly into NBT
+            player.writeNbt(nbt);
+            Path dir = playerDataDir.toPath();
+            Path temp = Files.createTempFile(dir, player.getUuidAsString() + "-", ".dat");
+            // 1.20.1: write compressed NBT to a file
+            NbtIo.writeCompressed(nbt, temp.toFile());
+            Path target = dir.resolve(player.getUuidAsString() + ".dat");
+            Path backup = dir.resolve(player.getUuidAsString() + ".dat_old");
+            Util.backupAndReplace(target, temp, backup);
+        } catch (Exception e) {
+            LogUtils.getLogger().warn("Failed to save player data for {}", player.getName().getString());
+        }
+    }
 }

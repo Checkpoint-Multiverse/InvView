@@ -5,7 +5,8 @@
   "name": "InvView",
   "description": "Allows you to open the inventory and ender chest of online and offline players",
   "authors": [
-    "Potatoboy9999"
+    "Potatoboy9999",
+    "Paul19988"
   ],
   "contact": {
     "website": "https://www.curseforge.com/minecraft/mc-mods/inv-view",
@@ -32,8 +33,8 @@
     "invview.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.17.0",
-    "fabric": "*",
-    "minecraft": ">=1.21.11"
+    "fabricloader": ">=0.16.5",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1"
   }
 }
