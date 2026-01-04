@@ -4,6 +4,7 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
 import us.potatoboy.invview.InvView;
+import us.potatoboy.invview.ViewCommand;
 
 public class SavingPlayerDataGui extends SimpleGui {
     private final ServerPlayerEntity savedPlayer;
@@ -11,8 +12,8 @@ public class SavingPlayerDataGui extends SimpleGui {
     /**
      * Constructs a new simple container gui for the supplied player.
      *
-     * @param type                        the screen handler that the client should display
-     * @param player                      the player to server this gui to
+     * @param type   the screen handler that the client should display
+     * @param player the player to server this gui to
      */
     public SavingPlayerDataGui(ScreenHandlerType<?> type, ServerPlayerEntity player, ServerPlayerEntity savedPlayer) {
         super(type, player, false);
@@ -22,5 +23,7 @@ public class SavingPlayerDataGui extends SimpleGui {
     @Override
     public void onClose() {
         InvView.savePlayerData(savedPlayer);
+        // Notify ViewCommand to cleanup viewer tracking/cache
+        ViewCommand.onGuiClosed(this.getPlayer().getUuid());
     }
 }

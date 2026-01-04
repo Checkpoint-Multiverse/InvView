@@ -5,14 +5,12 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Dynamic;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenHandlerType;
@@ -25,7 +23,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.dimension.DimensionType;
 import us.potatoboy.invview.gui.SaveSlot;
 import us.potatoboy.invview.gui.SavingPlayerDataGui;
 import us.potatoboy.invview.gui.UnmodifiableSlot;
@@ -33,11 +30,16 @@ import us.potatoboy.invview.mixin.EntityAccessor;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public class ViewCommand {
-    private static final MinecraftServer minecraftServer = InvView.getMinecraftServer();
+    public static final Map<UUID, UUID> OPEN_INVENTORIES = new HashMap<>();
+    private static final Map<UUID, ServerPlayerEntity> OFFLINE_PLAYERS_CACHE = new HashMap<>();
 
+    private static final MinecraftServer minecraftServer = InvView.getMinecraftServer();
     private static final String permProtected = "invview.protected";
     private static final String permModify = "invview.can_modify";
     private static final String msgProtected = "Requested inventory is protected";
@@ -60,6 +62,9 @@ public class ViewCommand {
                         : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
             }
 
+            if (player != null) {
+                OPEN_INVENTORIES.put(player.getUuid(), requestedPlayer.getUuid());
+            }
             gui.open();
         }
 
@@ -93,14 +98,16 @@ public class ViewCommand {
                         canModify ? new Slot(requestedEchest, i, 0, 0) : new UnmodifiableSlot(requestedEchest, i));
             }
 
+            if (player != null) {
+                OPEN_INVENTORIES.put(player.getUuid(), requestedPlayer.getUuid());
+            }
             gui.open();
         }
 
         return 1;
     }
 
-    private static ServerPlayerEntity getRequestedPlayer(CommandContext<ServerCommandSource> context)
-            throws CommandSyntaxException {
+    private static ServerPlayerEntity getRequestedPlayer(CommandContext<ServerCommandSource> context) {
         String targetName = StringArgumentType.getString(context, "target");
         MinecraftServer server = context.getSource().getServer();
         // Try to get an online player first
@@ -112,6 +119,11 @@ public class ViewCommand {
 
         // If player is not currently online
         if (requestedPlayer == null) {
+            // Use cached offline instance if available so multiple viewers share inventories
+            ServerPlayerEntity cached = OFFLINE_PLAYERS_CACHE.get(profile.getId());
+            if (cached != null) {
+                return cached;
+            }
             // In 1.20.1 the constructor doesn't require SyncedClientOptions
             requestedPlayer = new ServerPlayerEntity(server, server.getOverworld(), profile);
 
@@ -142,6 +154,9 @@ public class ViewCommand {
                     }
                 }
             }
+
+            // Cache new offline player instance for real-time syncing across viewers
+            OFFLINE_PLAYERS_CACHE.put(requestedPlayer.getUuid(), requestedPlayer);
         }
 
         return requestedPlayer;
@@ -187,6 +202,21 @@ public class ViewCommand {
     private static void addBackground(SimpleGui gui) {
         for (int i = 0; i < gui.getSize(); i++) {
             gui.setSlot(i, new GuiElementBuilder(Items.BARRIER).setName(Text.literal("")).build());
+        }
+    }
+
+    public static void onGuiClosed(UUID viewerUuid) {
+        UUID targetUuid = OPEN_INVENTORIES.remove(viewerUuid);
+        if (targetUuid == null) {
+            return;
+        }
+        // If no other viewers for this target remain, save and evict cached offline player
+        boolean othersViewing = OPEN_INVENTORIES.values().stream().anyMatch(uuid -> uuid.equals(targetUuid));
+        if (!othersViewing) {
+            ServerPlayerEntity offline = OFFLINE_PLAYERS_CACHE.remove(targetUuid);
+            if (offline != null) {
+                InvView.savePlayerData(offline);
+            }
         }
     }
 }
