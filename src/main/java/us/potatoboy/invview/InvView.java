@@ -3,7 +3,6 @@ package us.potatoboy.invview;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.mojang.logging.LogUtils;
-
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -94,17 +93,17 @@ public class InvView implements ModInitializer {
         return minecraftServer;
     }
 
-    // Taken and adapted for 1.20.1 from net.minecraft.world.PlayerSaveHandler.savePlayerData()
+    // Taken and adapted for 1.21.1 from net.minecraft.world.PlayerSaveHandler.savePlayerData()
     public static void savePlayerData(ServerPlayerEntity player) {
         File playerDataDir = minecraftServer.getSavePath(WorldSavePath.PLAYERDATA).toFile();
         try {
             NbtCompound nbt = new NbtCompound();
-            // 1.20.1: write player data directly into NBT
+            // 1.21.1: write player data directly into NBT
             player.writeNbt(nbt);
             Path dir = playerDataDir.toPath();
             Path temp = Files.createTempFile(dir, player.getUuidAsString() + "-", ".dat");
-            // 1.20.1: write compressed NBT to a file
-            NbtIo.writeCompressed(nbt, temp.toFile());
+            // 1.21.1: write compressed NBT to a path
+            NbtIo.writeCompressed(nbt, temp);
             Path target = dir.resolve(player.getUuidAsString() + ".dat");
             Path backup = dir.resolve(player.getUuidAsString() + ".dat_old");
             Util.backupAndReplace(target, temp, backup);

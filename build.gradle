@@ -42,11 +42,11 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
 //    modImplementation(enforcedPlatform("net.fabricmc.fabric-api:fabric-api-bom:0.92.6+1.20.1"))
-    modImplementation "net.fabricmc.fabric-api:fabric-api:0.92.6+1.20.1"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.7+1.21.1"
 
     // PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
     // You may need to force-disable transitiveness on them.
-    modImplementation include("eu.pb4:sgui:1.2.2+1.20")
+    modImplementation include("eu.pb4:sgui:1.6.1+1.21.1")
     modImplementation(include("me.lucko:fabric-permissions-api:0.3.1")) { exclude group: 'net.fabricmc.fabric-api', module: 'fabric-api-bom' }
 
 //    modImplementation "dev.emi:trinkets:${project.trinkets_version}"

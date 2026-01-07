@@ -11,6 +11,9 @@ import net.minecraft.inventory.EnderChestInventory;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtSizeTracker;
+import net.minecraft.network.message.ChatVisibility;
+import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenHandlerType;
@@ -124,8 +127,8 @@ public class ViewCommand {
             if (cached != null) {
                 return cached;
             }
-            // In 1.20.1 the constructor doesn't require SyncedClientOptions
-            requestedPlayer = new ServerPlayerEntity(server, server.getOverworld(), profile);
+            // In 1.21.1 the constructor doesn't require SyncedClientOptions
+            requestedPlayer = new ServerPlayerEntity(server, server.getOverworld(), profile, null);
 
             // Attempt to read existing player data directly from disk (PLAYERDATA/uuid.dat)
             Optional<NbtCompound> nbtOpt = Optional.empty();
@@ -134,12 +137,13 @@ public class ViewCommand {
                 Path playerDat = playerDataDir.resolve(requestedPlayer.getUuidAsString() + ".dat");
                 if (Files.exists(playerDat)) {
                     // 1.20.1: read NBT directly and load into the player
-                    NbtCompound nbt = NbtIo.readCompressed(playerDat.toFile());
+                    NbtSizeTracker nbtSizeTracker = new NbtSizeTracker(Long.MAX_VALUE, Integer.MAX_VALUE);
+                    NbtCompound nbt = NbtIo.readCompressed(playerDat, nbtSizeTracker);
                     nbtOpt = Optional.of(nbt);
                     requestedPlayer.readNbt(nbt);
                 }
             } catch (Exception e) {
-                LogUtils.getLogger().warn("Failed to load player data for {}", requestedPlayer.getName().getString());
+                LogUtils.getLogger().warn("Failed to load player data for {}", requestedPlayer.getGameProfile().getName());
             }
 
             // Avoids player's dimension being reset to the overworld
