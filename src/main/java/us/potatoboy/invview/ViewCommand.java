@@ -12,8 +12,6 @@ import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtSizeTracker;
-import net.minecraft.network.message.ChatVisibility;
-import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.ScreenHandlerType;
@@ -128,7 +126,13 @@ public class ViewCommand {
                 return cached;
             }
             // In 1.21.1 the constructor doesn't require SyncedClientOptions
-            requestedPlayer = new ServerPlayerEntity(server, server.getOverworld(), profile, null);
+            ServerPlayerEntity sourcePlayer = context.getSource().getPlayer();
+
+            if (sourcePlayer == null) {
+                throw new IllegalStateException("Command source player is null");
+            }
+
+            requestedPlayer = new ServerPlayerEntity(server, server.getOverworld(), profile, sourcePlayer.getClientOptions());
 
             // Attempt to read existing player data directly from disk (PLAYERDATA/uuid.dat)
             Optional<NbtCompound> nbtOpt = Optional.empty();
