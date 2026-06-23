@@ -36,7 +36,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 public class ViewCommand {
     public static final Map<UUID, UUID> OPEN_INVENTORIES = new HashMap<>();
@@ -47,6 +46,14 @@ public class ViewCommand {
     private static final String permModify = "invview.can_modify";
     private static final String msgProtected = "Requested inventory is protected";
 
+    private static final Map<UUID, Boolean> EDIT_MODE = new HashMap<>();
+    private static boolean toggleEditMode(UUID playerUuid) {
+        boolean current = EDIT_MODE.getOrDefault(playerUuid, false);
+        boolean next = !current;
+        EDIT_MODE.put(playerUuid, next);
+        return next;
+    }
+
     public static int inv(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         ServerPlayerEntity player = context.getSource().getPlayer();
         ServerPlayerEntity requestedPlayer = getRequestedPlayer(context);
@@ -54,20 +61,51 @@ public class ViewCommand {
         boolean canModify = PermissionsCompat.check(context.getSource(), permModify, 2);
 
         boolean isProtected = PermissionsCompat.check(requestedPlayer.getUuid(), permProtected, false);
+
+        boolean editMode = EDIT_MODE.getOrDefault(player.getUuid(), false);
+
         if (isProtected) {
             context.getSource().sendError(Text.literal(msgProtected));
         } else {
-            SimpleGui gui = new SavingPlayerDataGui(ScreenHandlerType.GENERIC_9X5, player, requestedPlayer);
+            SimpleGui gui = new SavingPlayerDataGui(ScreenHandlerType.GENERIC_9X5, player, requestedPlayer, editMode);
             gui.setTitle(requestedPlayer.getName());
             addBackground(gui);
             for (int i = 0; i < requestedPlayer.getInventory().size(); i++) {
-                gui.setSlotRedirect(i, canModify ? new SaveSlot(requestedPlayer.getInventory(), i, requestedPlayer)
+                gui.setSlotRedirect(i, canModify ? new SaveSlot(requestedPlayer.getInventory(), i, requestedPlayer, editMode)
                         : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
             }
 
             if(gui.getTitle().getString().contains("adminpanel_storage")) {
 
                 String title = gui.getTitle().getString();
+
+                gui.setSlot(41,
+                        new GuiElementBuilder(Items.WRITABLE_BOOK)
+                                .setName(Text.literal("Edit Mode: ")
+                                        .append(Text.literal(editMode ? "True" : "False")
+                                                .styled(style -> style.withColor(editMode ? 0x55FF55 : 0xFF5555))
+                                        )
+                                )
+                                .setCallback((index, type, action) -> {
+
+                                    toggleEditMode(player.getUuid());
+
+                                    player.getServer().getCommandManager().executeWithPrefix(
+                                            player.getCommandSource(),
+                                            "function momet:admin_panel/storage/go_back"
+                                    );
+
+                                    // To refresh the gui after we toggle edit mode, we close the gui and re-execute the command to open it again
+                                    gui.close();
+
+                                    player.getServer().getCommandManager().executeWithPrefix(
+                                            player.getCommandSource(),
+                                            "view inv "+title
+                                    );
+
+                                })
+                                .build()
+                );
 
                 gui.setSlot(42,
                         new GuiElementBuilder(Items.ARROW)
@@ -136,7 +174,7 @@ public class ViewCommand {
                 case 54 -> ScreenHandlerType.GENERIC_9X6;
                 default -> ScreenHandlerType.GENERIC_9X3;
             };
-            SimpleGui gui = new SavingPlayerDataGui(screenHandlerType, player, requestedPlayer);
+            SimpleGui gui = new SavingPlayerDataGui(screenHandlerType, player, requestedPlayer, true);
             gui.setTitle(requestedPlayer.getName());
             addBackground(gui);
             for (int i = 0; i < requestedEchest.size(); i++) {
