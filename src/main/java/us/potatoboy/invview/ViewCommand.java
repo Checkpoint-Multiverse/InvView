@@ -92,7 +92,7 @@ public class ViewCommand {
 
                                     player.getServer().getCommandManager().executeWithPrefix(
                                             player.getCommandSource(),
-                                            "function momet:admin_panel/storage/go_back"
+                                            "function momet:admin_panel/storage/edit_mode"
                                     );
 
                                     // To refresh the gui after we toggle edit mode, we close the gui and re-execute the command to open it again
