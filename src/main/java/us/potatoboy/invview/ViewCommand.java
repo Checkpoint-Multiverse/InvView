@@ -26,6 +26,7 @@ import net.minecraft.util.Uuids;
 import net.minecraft.util.WorldSavePath;
 import us.potatoboy.invview.gui.SaveSlot;
 import us.potatoboy.invview.gui.SavingPlayerDataGui;
+import us.potatoboy.invview.gui.StorageNavigationHelper;
 import us.potatoboy.invview.gui.UnmodifiableSlot;
 import us.potatoboy.invview.mixin.EntityAccessor;
 
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class ViewCommand {
     public static final Map<UUID, UUID> OPEN_INVENTORIES = new HashMap<>();
@@ -61,6 +63,49 @@ public class ViewCommand {
             for (int i = 0; i < requestedPlayer.getInventory().size(); i++) {
                 gui.setSlotRedirect(i, canModify ? new SaveSlot(requestedPlayer.getInventory(), i, requestedPlayer)
                         : new UnmodifiableSlot(requestedPlayer.getInventory(), i));
+            }
+
+            if(gui.getTitle().getString().contains("adminpanel_storage")) {
+
+                String title = gui.getTitle().getString();
+
+                gui.setSlot(42,
+                        new GuiElementBuilder(Items.ARROW)
+                                .setName(Text.literal("Previous Storage"))
+                                .setCallback((index, type, action) -> {
+                                    String var = StorageNavigationHelper.getPrevious(title);
+
+                                    if (var != null) {
+                                        player.getServer().getCommandManager().executeWithPrefix(player.getCommandSource(),"function momet:admin_panel/storage/previous {storage:\""+ var +"\"}");
+                                    }
+                                })
+                                .build()
+                );
+
+                gui.setSlot(43,
+                        new GuiElementBuilder(Items.RED_STAINED_GLASS_PANE)
+                                .setName(Text.literal("Go Back"))
+                                .setCallback((index, type, action) -> {
+                                    player.getServer().getCommandManager().executeWithPrefix(
+                                            player.getCommandSource(),
+                                            "function momet:admin_panel/storage/go_back"
+                                    );
+                                })
+                                .build()
+                );
+
+                gui.setSlot(44,
+                        new GuiElementBuilder(Items.ARROW)
+                                .setName(Text.literal("Next Storage"))
+                                .setCallback((index, type, action) -> {
+                                    String var = StorageNavigationHelper.getNext(title);
+
+                                    if (var != null) {
+                                        player.getServer().getCommandManager().executeWithPrefix(player.getCommandSource(),"function momet:admin_panel/storage/next {storage:\""+ var +"\"}");
+                                    }
+                                })
+                                .build()
+                );
             }
 
             if (player != null) {
